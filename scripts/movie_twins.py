@@ -42,7 +42,7 @@ def find_similar_users(vectorized_data):
     mh_model = minhash.fit(vectorized_data)
 
     # Approximate similarity join within the dataset
-    similar_pairs = mh_model.approxSimilarityJoin(vectorized_data, vectorized_data, threshold=1.0, distCol="JaccardDistance")
+    similar_pairs = mh_model.approxSimilarityJoin(vectorized_data, vectorized_data, threshold=0.5, distCol="JaccardDistance")
     
     # Filter to avoid self-pairs and duplicates (only userIdA > userIdB)
     similar_pairs = similar_pairs.filter(col("datasetA.userId") > col("datasetB.userId"))
@@ -56,10 +56,14 @@ def find_similar_users(vectorized_data):
 def main():
     # Initialize Spark session with memory settings
     spark = SparkSession.builder \
-        .appName("MovieTwinFinder") \
-        .config("spark.executor.memory", "24g") \
-        .config("spark.driver.memory", "16g") \
-        .getOrCreate()
+    .appName("MovieTwinsLSH") \
+    .config("spark.executor.memory", "24g") \
+    .config("spark.executor.memoryOverhead", "8g") \
+    .config("spark.driver.memory", "16g") \
+    .config("spark.network.timeout", "600s") \
+    .config("spark.executor.heartbeatInterval", "60s") \
+    .config("spark.kryoserializer.buffer.max", "512m") \
+    .getOrCreate()
 
     # Get current user's ID and input folder name from arguments
     user_id = os.environ['USER']
@@ -76,12 +80,19 @@ def main():
 
     # Save top 100 movie twins to CSV
     output_path = f"top_100_{input_folder}.csv"
-    output_df.to_csv(output_path, index=False)
-    top_100_pairs.select(
-    col("datasetA.userId").alias("userIdA"),
-    col("datasetB.userId").alias("userIdB"),
-    col("JaccardDistance")).write.mode("overwrite").csv(f"hdfs:///user/gha2009_nyu_edu/output/top_100_{input_folder}", header=True)
+    top_100_pairs_pd = top_100_pairs.select(
+        col("datasetA.userId").alias("userIdA"),
+        col("datasetB.userId").alias("userIdB"),
+        col("JaccardDistance")
+    ).toPandas()
+    top_100_pairs_pd.to_csv(output_path, index=False)
 
+    # Save to HDFS
+    top_100_pairs.select(
+        col("datasetA.userId").alias("userIdA"),
+        col("datasetB.userId").alias("userIdB"),
+        col("JaccardDistance")
+    ).write.mode("overwrite").csv(f"hdfs:///user/gha2009_nyu_edu/output/top_100_{input_folder}", header=True)
     spark.stop()
 
 if __name__ == "__main__":
