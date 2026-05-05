@@ -152,4 +152,4 @@ All experiments were run on **NYU's HPC cluster** using SLURM batch jobs and Apa
 
 ## Full Report
 
-For complete implementation details, hyperparameter tables, and analysis, see [`Capstone_Report.pdf`](./Capstone_Report.pdf).
+For complete implementation details, hyperparameter tables, and analysis, see [`WrittenReport.pdf`](./Capstone_Report.pdf).
